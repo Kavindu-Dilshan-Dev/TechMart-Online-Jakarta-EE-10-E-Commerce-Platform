@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.kavindu</groupId>
+        <artifactId>Tech-Mart-Online</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>techmart-ear</artifactId>
+    <packaging>ear</packaging>
+    <name>TechMart Online - EAR (assembled deployment)</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.kavindu</groupId>
+            <artifactId>techmart-ejb</artifactId>
+            <type>ejb</type>
+        </dependency>
+        <dependency>
+            <groupId>com.kavindu</groupId>
+            <artifactId>techmart-web</artifactId>
+            <type>war</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.kavindu</groupId>
+            <artifactId>techmart-common</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>techmart</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-ear-plugin</artifactId>
+                <configuration>
+                    <version>10</version>
+                    <defaultLibBundleDir>lib</defaultLibBundleDir>
+                    <generateApplicationXml>false</generateApplicationXml>
+                    <applicationName>TechMart Online</applicationName>
+                    <modules>
+                        <ejbModule>
+                            <groupId>com.kavindu</groupId>
+                            <artifactId>techmart-ejb</artifactId>
+                            <bundleFileName>techmart-ejb.jar</bundleFileName>
+                        </ejbModule>
+                        <webModule>
+                            <groupId>com.kavindu</groupId>
+                            <artifactId>techmart-web</artifactId>
+                            <bundleFileName>techmart-web.war</bundleFileName>
+                            <contextRoot>/techmart</contextRoot>
+                        </webModule>
+                        <jarModule>
+                            <groupId>com.kavindu</groupId>
+                            <artifactId>techmart-common</artifactId>
+                            <bundleDir>lib</bundleDir>
+                        </jarModule>
+                    </modules>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
