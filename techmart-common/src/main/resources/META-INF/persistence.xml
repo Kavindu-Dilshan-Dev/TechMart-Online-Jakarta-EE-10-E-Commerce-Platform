@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="https://jakarta.ee/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence
+                                 https://jakarta.ee/xml/ns/persistence/persistence_3_0.xsd"
+             version="3.0">
+
+    <persistence-unit name="TechMartPU" transaction-type="JTA">
+        <jta-data-source>java:jboss/datasources/TechMartDS</jta-data-source>
+
+        <class>com.kavindu.techmart.common.entity.User</class>
+        <class>com.kavindu.techmart.common.entity.Category</class>
+        <class>com.kavindu.techmart.common.entity.Product</class>
+        <class>com.kavindu.techmart.common.entity.Warehouse</class>
+        <class>com.kavindu.techmart.common.entity.Inventory</class>
+        <class>com.kavindu.techmart.common.entity.Order</class>
+        <class>com.kavindu.techmart.common.entity.OrderItem</class>
+        <class>com.kavindu.techmart.common.entity.Payment</class>
+        <class>com.kavindu.techmart.common.entity.Notification</class>
+        <class>com.kavindu.techmart.common.entity.StockAlert</class>
+        <class>com.kavindu.techmart.common.entity.AuditLog</class>
+        <class>com.kavindu.techmart.common.entity.UserSession</class>
+
+        <exclude-unlisted-classes>true</exclude-unlisted-classes>
+
+        <properties>
+
+            <property name="hibernate.hbm2ddl.auto" value="update"/>
+
+            <property name="hibernate.dialect" value="org.hibernate.dialect.MySQLDialect"/>
+
+            <property name="hibernate.jdbc.batch_size" value="30"/>
+            <property name="hibernate.order_inserts" value="true"/>
+            <property name="hibernate.order_updates" value="true"/>
+            <property name="hibernate.jdbc.batch_versioned_data" value="true"/>
+
+            <property name="hibernate.default_batch_fetch_size" value="16"/>
+            <property name="hibernate.jdbc.fetch_size" value="50"/>
+
+            <property name="hibernate.show_sql" value="false"/>
+            <property name="hibernate.format_sql" value="false"/>
+
+            <property name="hibernate.cache.use_second_level_cache" value="false"/>
+            <property name="hibernate.cache.use_query_cache" value="false"/>
+        </properties>
+    </persistence-unit>
+</persistence>
