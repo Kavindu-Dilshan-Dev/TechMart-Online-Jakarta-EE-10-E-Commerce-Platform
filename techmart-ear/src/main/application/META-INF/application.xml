@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<application xmlns="https://jakarta.ee/xml/ns/jakartaee"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+                                 https://jakarta.ee/xml/ns/jakartaee/application_10.xsd"
+             version="10">
+
+    <application-name>TechMart Online</application-name>
+    <display-name>TechMart Online</display-name>
+    <initialize-in-order>true</initialize-in-order>
+
+    <module>
+        <ejb>techmart-ejb.jar</ejb>
+    </module>
+    <module>
+        <web>
+            <web-uri>techmart-web.war</web-uri>
+            <context-root>/techmart</context-root>
+        </web>
+    </module>
+
+    <library-directory>lib</library-directory>
+
+</application>
