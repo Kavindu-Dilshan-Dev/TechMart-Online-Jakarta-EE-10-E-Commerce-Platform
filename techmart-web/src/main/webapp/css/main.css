@@ -1,0 +1,52 @@
+:root {
+  --tm-primary: #0d6efd;
+  --tm-dark: #1b2330;
+}
+
+body {
+  background: #f5f7fb;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+.navbar-brand .text-primary { color: var(--tm-primary) !important; }
+
+.tm-hero {
+  background: linear-gradient(120deg, #1b2330 0%, #0d6efd 100%);
+  color: #fff;
+  padding: 4rem 0;
+  border-radius: 0 0 1rem 1rem;
+}
+.tm-hero h1 { font-weight: 700; }
+
+.product-card {
+  transition: transform .15s ease, box-shadow .15s ease;
+  height: 100%;
+}
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 .5rem 1.25rem rgba(0, 0, 0, .12);
+}
+.product-card img {
+  height: 200px;
+  object-fit: cover;
+  background: #e9ecef;
+}
+.product-price { font-size: 1.15rem; font-weight: 700; color: var(--tm-dark); }
+.product-price .old { font-size: .9rem; color: #adb5bd; text-decoration: line-through; font-weight: 400; }
+
+.badge-stock-in { background: #198754; }
+.badge-stock-out { background: #dc3545; }
+.badge-stock-low { background: #fd7e14; }
+
+.tm-footer {
+  background: var(--tm-dark);
+  color: #adb5bd;
+  padding: 2rem 0;
+  margin-top: 3rem;
+}
+
+.card { border: none; box-shadow: 0 .125rem .5rem rgba(0, 0, 0, .06); }
+
+.tm-filter-sidebar { position: sticky; top: 1rem; }
+
+.tm-loading { padding: 3rem; text-align: center; color: #6c757d; }
