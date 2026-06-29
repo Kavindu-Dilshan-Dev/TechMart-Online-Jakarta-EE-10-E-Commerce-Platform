@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order History · TechMart Online</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/main.css" rel="stylesheet">
+</head><body>
+  <div id="tm-navbar"></div>
+  <main class="container py-4">
+    <h2 class="mb-4">Order History</h2>
+    <div id="tm-orders">
+      <div class="text-center text-muted py-5">Loading orders…</div>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/app.js"></script><script src="js/auth.js"></script><script src="js/websocket.js"></script>
+  <script>
+    async function loadOrders() {
+      const host = document.getElementById('tm-orders');
+      host.innerHTML = '<div class="text-center text-muted py-5">Loading orders…</div>';
+      try {
+        const orders = await apiCall('GET', '/orders');
+        renderOrders(Array.isArray(orders) ? orders : []);
+      } catch (e) {
+        host.innerHTML = '<div class="alert alert-danger">Could not load your orders. Please try again.</div>';
+      }
+    }
+
+    function renderOrders(orders) {
+      const host = document.getElementById('tm-orders');
+      if (orders.length === 0) {
+        host.innerHTML = `
+          <div class="text-center py-5">
+            <h4 class="text-muted mb-3">No orders yet</h4>
+            <p class="text-muted">When you place an order it will show up here.</p>
+            <a href="${APP_BASE}products.html" class="btn btn-primary">Start shopping</a>
+          </div>`;
+        return;
+      }
+
+      const rows = orders.map(o => {
+        const id = o.id;
+        const number = escapeHtml(o.orderNumber || ('#' + id));
+        const date = escapeHtml(formatDate(o.createdAt || o.orderDate || o.date));
+        const total = escapeHtml(formatCurrency(o.total !== undefined ? o.total : o.totalAmount));
+        const status = o.status;
+        const cancelBtn = status === 'PENDING'
+          ? `<button type="button" class="btn btn-sm btn-outline-danger" onclick="cancelOrder(${Number(id)})">Cancel</button>`
+          : '';
+        return `
+          <tr>
+            <td><a href="${APP_BASE}order-confirmation.html?id=${encodeURIComponent(id)}">${number}</a></td>
+            <td>${date}</td>
+            <td>${statusBadge(status)}</td>
+            <td class="text-end">${total}</td>
+            <td class="text-end">
+              <a href="${APP_BASE}order-confirmation.html?id=${encodeURIComponent(id)}" class="btn btn-sm btn-outline-primary">View</a>
+              ${cancelBtn}
+            </td>
+          </tr>`;
+      }).join('');
+
+      host.innerHTML = `
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th class="text-end">Total</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    async function cancelOrder(id) {
+      try {
+        await apiCall('POST', '/orders/' + encodeURIComponent(id) + '/cancel');
+        showToast('Order cancelled', 'info');
+        loadOrders();
+      } catch (e) { /* apiCall already toasted */ }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderNavbar('');
+      if (!requireAuth()) return;
+      loadOrders();
+    });
+  </script>
+</body></html>
