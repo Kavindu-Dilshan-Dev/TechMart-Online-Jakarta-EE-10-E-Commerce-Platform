@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orders · Admin · TechMart Online</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/main.css" rel="stylesheet">
+  <link href="../css/dashboard.css" rel="stylesheet">
+</head><body>
+  <div id="tm-navbar"></div>
+  <div class="d-flex">
+    <aside id="tm-admin-sidebar" class="d-none d-md-block" style="width:230px"></aside>
+    <main class="container-fluid py-4 px-4 flex-grow-1">
+      <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h3 class="mb-0">Orders</h3>
+        <div class="d-flex align-items-center gap-2">
+          <label class="text-muted small mb-0">Filter:</label>
+          <select class="form-select form-select-sm" id="tm-status-filter" style="width:auto"></select>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Order #</th><th>Customer</th><th>Date</th>
+                  <th class="text-end">Total</th><th>Payment</th><th>Status</th><th style="width:200px">Update status</th>
+                </tr>
+              </thead>
+              <tbody id="tm-orders-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/app.js"></script><script src="../js/auth.js"></script><script src="../js/websocket.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    function renderOrders(orders) {
+      const rows = (orders || []).map(o =>
+        '<tr>' +
+        '<td><a href="' + APP_BASE + 'order-confirmation.html?id=' + o.id + '">' + escapeHtml(o.orderNumber || ('#' + o.id)) + '</a></td>' +
+        '<td>' + escapeHtml(o.username || '-') + '</td>' +
+        '<td><small>' + escapeHtml(formatDate(o.orderDate)) + '</small></td>' +
+        '<td class="text-end">' + formatCurrency(o.totalAmount) + '</td>' +
+        '<td>' + (o.paymentStatus ? statusBadge(o.paymentStatus) : '<span class="text-muted">-</span>') + '</td>' +
+        '<td>' + statusBadge(o.status) + '</td>' +
+        '<td>' +
+        '<select class="form-select form-select-sm" data-order="' + o.id + '">' +
+        adminStatusOptions(o.status, false) +
+        '</select>' +
+        '</td>' +
+        '</tr>'
+      );
+      adminFillTable('tm-orders-body', rows, 7, 'No orders match this filter.');
+      document.querySelectorAll('select[data-order]').forEach(sel => {
+        const original = sel.value;
+        sel.addEventListener('change', () => updateStatus(sel, original));
+      });
+    }
+
+    async function updateStatus(sel, original) {
+      const id = sel.getAttribute('data-order');
+      const status = sel.value;
+      sel.disabled = true;
+      try {
+        await apiCall('PUT', '/orders/admin/' + id + '/status', { status });
+        showToast('Order #' + id + ' set to ' + status, 'success');
+        await loadOrders();
+      } catch (e) {
+        sel.value = original; // revert on failure
+        sel.disabled = false;
+      }
+    }
+
+    async function loadOrders() {
+      adminTableLoading('tm-orders-body', 7);
+      const status = document.getElementById('tm-status-filter').value;
+      const path = status ? '/orders/admin/status/' + encodeURIComponent(status) : '/orders/admin/all';
+      try {
+        const orders = await apiCall('GET', path) || [];
+        renderOrders(orders);
+      } catch (e) {
+        adminFillTable('tm-orders-body', [], 7, 'Could not load orders.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!requireRole('ADMIN')) return;
+      renderNavbar('');
+      renderAdminSidebar('orders');
+      const filter = document.getElementById('tm-status-filter');
+      filter.innerHTML = adminStatusOptions('', true);
+      filter.addEventListener('change', loadOrders);
+      loadOrders();
+      window.onTechMartNotification = function (msg) {
+        if (msg && msg.type === 'ORDER_UPDATE') loadOrders();
+      };
+    });
+  </script>
+</body></html>

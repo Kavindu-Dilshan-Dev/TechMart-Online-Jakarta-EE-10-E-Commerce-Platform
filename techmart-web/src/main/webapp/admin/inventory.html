@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory · Admin · TechMart Online</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/main.css" rel="stylesheet">
+  <link href="../css/dashboard.css" rel="stylesheet">
+</head><body>
+  <div id="tm-navbar"></div>
+  <div class="d-flex">
+    <aside id="tm-admin-sidebar" class="d-none d-md-block" style="width:230px"></aside>
+    <main class="container-fluid py-4 px-4 flex-grow-1">
+      <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h3 class="mb-0">Inventory</h3>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="tm-only-low">
+          <label class="form-check-label" for="tm-only-low">Show low-stock only</label>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Product</th><th>SKU</th><th>Warehouse</th>
+                  <th class="text-end">Available</th><th class="text-end">Reserved</th><th class="text-end">Threshold</th>
+                  <th style="width:220px">Update qty</th><th class="text-end">Sync</th>
+                </tr>
+              </thead>
+              <tbody id="tm-inventory-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/app.js"></script><script src="../js/auth.js"></script><script src="../js/websocket.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    let allInventory = [];
+
+    function render() {
+      const onlyLow = document.getElementById('tm-only-low').checked;
+      const list = onlyLow ? allInventory.filter(i => i.lowStock) : allInventory;
+      const rows = list.map(i =>
+        '<tr class="' + (i.lowStock ? 'table-danger' : '') + '">' +
+        '<td>' + escapeHtml(i.productName || ('#' + i.productId)) +
+        (i.lowStock ? ' <span class="badge bg-danger ms-1">Low</span>' : '') + '</td>' +
+        '<td><small class="text-muted">' + escapeHtml(i.productSku || '-') + '</small></td>' +
+        '<td>' + escapeHtml(i.warehouseName || ('WH ' + (i.warehouseId != null ? i.warehouseId : '-'))) + '</td>' +
+        '<td class="text-end">' + escapeHtml(i.quantityAvailable) + '</td>' +
+        '<td class="text-end">' + escapeHtml(i.quantityReserved) + '</td>' +
+        '<td class="text-end">' + escapeHtml(i.reorderThreshold) + '</td>' +
+        '<td>' +
+        '<div class="input-group input-group-sm">' +
+        '<input type="number" min="0" class="form-control" value="' + escapeHtml(i.quantityAvailable) + '" data-qty="' + i.id + '">' +
+        '<button class="btn btn-outline-primary" data-save="' + i.id + '">Save</button>' +
+        '</div>' +
+        '</td>' +
+        '<td class="text-end">' +
+        '<button class="btn btn-sm btn-outline-secondary" data-sync="' + i.productId + '">Sync</button>' +
+        '</td>' +
+        '</tr>'
+      );
+      adminFillTable('tm-inventory-body', rows, 8, onlyLow ? 'No low-stock items. 🎉' : 'No inventory records.');
+      wireActions();
+    }
+
+    function wireActions() {
+      document.querySelectorAll('[data-save]').forEach(btn =>
+        btn.addEventListener('click', () => saveQty(btn.getAttribute('data-save'))));
+      document.querySelectorAll('[data-sync]').forEach(btn =>
+        btn.addEventListener('click', () => syncProduct(btn, btn.getAttribute('data-sync'))));
+    }
+
+    async function saveQty(id) {
+      const input = document.querySelector('input[data-qty="' + id + '"]');
+      if (!input) return;
+      const quantity = parseInt(input.value, 10);
+      if (isNaN(quantity) || quantity < 0) { showToast('Enter a valid quantity', 'warning'); return; }
+      input.disabled = true;
+      try {
+        await apiCall('PUT', '/inventory/' + id, { quantity });
+        showToast('Inventory updated', 'success');
+        await loadInventory();
+      } catch (e) { input.disabled = false; }
+    }
+
+    async function syncProduct(btn, productId) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+      try {
+        await apiCall('POST', '/inventory/sync/' + productId);
+        showToast('Sync started for product #' + productId, 'info');
+      } catch (e) { /* toast already shown */ }
+      finally { btn.disabled = false; btn.textContent = 'Sync'; }
+    }
+
+    async function loadInventory() {
+      adminTableLoading('tm-inventory-body', 8);
+      try {
+        allInventory = await apiCall('GET', '/inventory/all') || [];
+        render();
+      } catch (e) {
+        adminFillTable('tm-inventory-body', [], 8, 'Could not load inventory.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!requireRole('ADMIN')) return;
+      renderNavbar('');
+      renderAdminSidebar('inventory');
+      document.getElementById('tm-only-low').addEventListener('change', render);
+      loadInventory();
+      window.onTechMartNotification = function (msg) {
+        if (msg && msg.type === 'STOCK_ALERT') loadInventory();
+      };
+    });
+  </script>
+</body></html>

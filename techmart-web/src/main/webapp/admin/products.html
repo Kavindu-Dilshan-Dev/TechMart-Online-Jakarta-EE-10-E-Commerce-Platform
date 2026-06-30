@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Products · Admin · TechMart Online</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/main.css" rel="stylesheet">
+  <link href="../css/dashboard.css" rel="stylesheet">
+</head><body>
+  <div id="tm-navbar"></div>
+  <div class="d-flex">
+    <aside id="tm-admin-sidebar" class="d-none d-md-block" style="width:230px"></aside>
+    <main class="container-fluid py-4 px-4 flex-grow-1">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0">Products</h3>
+        <button class="btn btn-primary" id="tm-new-product">+ New product</button>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>ID</th><th>Name</th><th>SKU</th><th>Category</th><th>Brand</th>
+                  <th class="text-end">Price</th><th class="text-end">Stock</th><th>Active</th><th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tm-products-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal fade" id="tm-product-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <form id="tm-product-form">
+          <div class="modal-header">
+            <h5 class="modal-title" id="tm-product-modal-title">New product</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="pf-id">
+            <div class="row g-3">
+              <div class="col-md-8">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-control" id="pf-name" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">SKU</label>
+                <input type="text" class="form-control" id="pf-sku" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" id="pf-description" rows="3"></textarea>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Category</label>
+                <select class="form-select" id="pf-category" required></select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Brand</label>
+                <input type="text" class="form-control" id="pf-brand">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Price (LKR)</label>
+                <input type="number" step="0.01" min="0" class="form-control" id="pf-price" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Discounted price (LKR)</label>
+                <input type="number" step="0.01" min="0" class="form-control" id="pf-discounted" placeholder="optional">
+              </div>
+              <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="pf-active" checked>
+                  <label class="form-check-label" for="pf-active">Active</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Image URL</label>
+                <input type="url" class="form-control" id="pf-image" placeholder="https://…">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="tm-product-save">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/app.js"></script><script src="../js/auth.js"></script><script src="../js/websocket.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    let productModal = null;
+    let categories = [];
+
+    async function loadCategories() {
+      try {
+        categories = await apiCall('GET', '/products/categories') || [];
+      } catch (e) { categories = []; }
+      const sel = document.getElementById('pf-category');
+      sel.innerHTML = '<option value="">Select category…</option>' +
+        categories.map(c => '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>').join('');
+    }
+
+    async function loadProducts() {
+      adminTableLoading('tm-products-body', 9);
+      try {
+        const products = await apiCall('GET', '/products?size=100') || [];
+        const rows = products.map(p =>
+          '<tr>' +
+          '<td>' + escapeHtml(p.id) + '</td>' +
+          '<td>' + escapeHtml(p.name) + '</td>' +
+          '<td><small class="text-muted">' + escapeHtml(p.sku || '-') + '</small></td>' +
+          '<td>' + escapeHtml(p.categoryName || '-') + '</td>' +
+          '<td>' + escapeHtml(p.brand || '-') + '</td>' +
+          '<td class="text-end">' + formatCurrency(p.effectivePrice != null ? p.effectivePrice : p.price) + '</td>' +
+          '<td class="text-end">' + escapeHtml(p.totalStock) + '</td>' +
+          '<td>' + (p.active ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td>' +
+          '<td class="text-end text-nowrap">' +
+          '<button class="btn btn-sm btn-outline-primary me-1" data-edit="' + p.id + '">Edit</button>' +
+          '<button class="btn btn-sm btn-outline-danger" data-del="' + p.id + '" data-name="' + escapeHtml(p.name) + '">Delete</button>' +
+          '</td>' +
+          '</tr>'
+        );
+        adminFillTable('tm-products-body', rows, 9, 'No products yet. Create your first one.');
+        wireRowActions(products);
+      } catch (e) {
+        adminFillTable('tm-products-body', [], 9, 'Could not load products.');
+      }
+    }
+
+    function wireRowActions(products) {
+      const byId = {};
+      products.forEach(p => byId[p.id] = p);
+      document.querySelectorAll('[data-edit]').forEach(btn =>
+        btn.addEventListener('click', () => openModal(byId[btn.getAttribute('data-edit')])));
+      document.querySelectorAll('[data-del]').forEach(btn =>
+        btn.addEventListener('click', () => deleteProduct(btn.getAttribute('data-del'), btn.getAttribute('data-name'))));
+    }
+
+    function openModal(product) {
+      const isEdit = !!product;
+      document.getElementById('tm-product-modal-title').textContent = isEdit ? 'Edit product' : 'New product';
+      document.getElementById('pf-id').value = isEdit ? product.id : '';
+      document.getElementById('pf-name').value = isEdit ? (product.name || '') : '';
+      document.getElementById('pf-sku').value = isEdit ? (product.sku || '') : '';
+      document.getElementById('pf-description').value = isEdit ? (product.description || '') : '';
+      document.getElementById('pf-category').value = isEdit && product.categoryId != null ? String(product.categoryId) : '';
+      document.getElementById('pf-brand').value = isEdit ? (product.brand || '') : '';
+      document.getElementById('pf-price').value = isEdit && product.price != null ? product.price : '';
+      document.getElementById('pf-discounted').value = isEdit && product.discountedPrice != null ? product.discountedPrice : '';
+      document.getElementById('pf-image').value = isEdit ? (product.imageUrl || '') : '';
+      document.getElementById('pf-active').checked = isEdit ? !!product.active : true;
+      productModal.show();
+    }
+
+    function buildPayload() {
+      const idVal = document.getElementById('pf-id').value;
+      const catVal = document.getElementById('pf-category').value;
+      const discVal = document.getElementById('pf-discounted').value;
+      const payload = {
+        name: document.getElementById('pf-name').value.trim(),
+        sku: document.getElementById('pf-sku').value.trim(),
+        description: document.getElementById('pf-description').value.trim(),
+        brand: document.getElementById('pf-brand').value.trim(),
+        imageUrl: document.getElementById('pf-image').value.trim(),
+        price: parseFloat(document.getElementById('pf-price').value),
+        discountedPrice: discVal !== '' ? parseFloat(discVal) : null,
+        categoryId: catVal !== '' ? parseInt(catVal, 10) : null,
+        active: document.getElementById('pf-active').checked
+      };
+      if (idVal !== '') payload.id = parseInt(idVal, 10);
+      return payload;
+    }
+
+    async function saveProduct(e) {
+      e.preventDefault();
+      const payload = buildPayload();
+      const saveBtn = document.getElementById('tm-product-save');
+      saveBtn.disabled = true;
+      try {
+        if (payload.id) {
+          await apiCall('PUT', '/products/' + payload.id, payload);
+          showToast('Product updated', 'success');
+        } else {
+          await apiCall('POST', '/products', payload);
+          showToast('Product created', 'success');
+        }
+        productModal.hide();
+        await loadProducts();
+      } catch (err) { /* toast already shown */ }
+      finally { saveBtn.disabled = false; }
+    }
+
+    async function deleteProduct(id, name) {
+      if (!confirm('Delete product "' + name + '"? This soft-deletes it.')) return;
+      try {
+        await apiCall('DELETE', '/products/' + id);
+        showToast('Product deleted', 'success');
+        await loadProducts();
+      } catch (e) { /* toast already shown */ }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!requireRole('ADMIN')) return;
+      renderNavbar('');
+      renderAdminSidebar('products');
+      productModal = new bootstrap.Modal(document.getElementById('tm-product-modal'));
+      document.getElementById('tm-new-product').addEventListener('click', () => openModal(null));
+      document.getElementById('tm-product-form').addEventListener('submit', saveProduct);
+      loadCategories();
+      loadProducts();
+    });
+  </script>
+</body></html>
