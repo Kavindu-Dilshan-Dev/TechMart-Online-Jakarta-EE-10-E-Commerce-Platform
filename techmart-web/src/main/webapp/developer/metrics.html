@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JVM &amp; Metrics · Developer · TechMart Online</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/main.css" rel="stylesheet">
+  <link href="../css/dashboard.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head><body>
+  <div id="tm-navbar"></div>
+  <main class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <h1 class="h3 mb-0">Developer Console — JVM &amp; Performance</h1>
+      <div class="d-flex align-items-center gap-3">
+        <span class="small text-muted">WebSocket:</span>
+        <span id="tm-ws-status" class="badge bg-secondary">OFFLINE</span>
+        <span class="text-muted small">Auto-refresh 5s · <span id="tm-last-updated">—</span></span>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-sm-6 col-xl-3"><div class="metric-card bg-grad-blue">
+        <div class="metric-label">Uptime</div><div class="metric-value" id="tm-uptime">—</div></div></div>
+      <div class="col-12 col-sm-6 col-xl-3"><div class="metric-card bg-grad-green">
+        <div class="metric-label">Active Users</div><div class="metric-value" id="tm-active-users">—</div></div></div>
+      <div class="col-12 col-sm-6 col-xl-3"><div class="metric-card bg-grad-purple">
+        <div class="metric-label">Total Requests</div><div class="metric-value" id="tm-total-requests">—</div></div></div>
+      <div class="col-12 col-sm-6 col-xl-3"><div class="metric-card bg-grad-orange">
+        <div class="metric-label">Avg Response</div><div class="metric-value" id="tm-avg-response">—</div>
+        <div class="metric-sub">milliseconds</div></div></div>
+
+      <div class="col-12 col-sm-6 col-xl-3"><div class="metric-card bg-grad-red">
+        <div class="metric-label">Heap Used / Max</div><div class="metric-value" id="tm-heap">—</div>
+        <div class="metric-sub">megabytes</div></div></div>
+      <div class="col-12 col-sm-6 col-xl-3"><div class="metric-card bg-grad-teal">
+        <div class="metric-label">Threads</div><div class="metric-value" id="tm-threads">—</div></div></div>
+      <div class="col-12 col-sm-6 col-xl-3"><div class="metric-card bg-grad-purple">
+        <div class="metric-label">GC Collections</div><div class="metric-value" id="tm-gc-count">—</div>
+        <div class="metric-sub"><span id="tm-gc-time">—</span> ms total</div></div></div>
+      <div class="col-12 col-sm-6 col-xl-3"><div class="metric-card bg-grad-blue">
+        <div class="metric-label">WebSocket Connections</div><div class="metric-value" id="tm-ws-conn">—</div>
+        <div class="metric-sub"><span id="tm-ws-users">—</span> users</div></div></div>
+    </div>
+
+    <div class="row g-4 mb-4">
+      <div class="col-12 col-xl-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-white"><strong>Recent Samples</strong>
+            <span class="text-muted small">avg response &amp; heap over time</span></div>
+          <div class="card-body"><div class="chart-box"><canvas id="tm-samples-chart"></canvas></div></div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-white"><strong>Heap Usage</strong></div>
+          <div class="card-body"><div class="chart-box"><canvas id="tm-heap-chart"></canvas></div></div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-white"><strong>Orders</strong></div>
+          <div class="card-body"><div class="chart-box"><canvas id="tm-orders-chart"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-12 col-xl-6">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white"><strong>Circuit Breaker States</strong></div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle metrics-table mb-0">
+                <thead><tr><th>Service</th><th>State</th></tr></thead>
+                <tbody id="tm-cb-tbody">
+                  <tr><td colspan="2" class="text-center text-muted py-3">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/websocket.js"></script>
+  <script src="../js/metrics.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      renderNavbar('');
+      if (!requireRole('DEVELOPER')) return;
+
+      const samplesChart = tmCreateSamplesLineChart('tm-samples-chart');
+      const heapChart = tmCreateHeapDoughnut('tm-heap-chart');
+      const ordersChart = tmCreateOrdersBar('tm-orders-chart');
+
+      async function refresh() {
+        const [metrics, jvm, samples, ws] = await Promise.all([
+          apiCall('GET', '/metrics'),
+          apiCall('GET', '/metrics/jvm'),
+          apiCall('GET', '/metrics/samples'),
+          apiCall('GET', '/metrics/websocket')
+        ]);
+
+        /* /metrics/jvm may carry the richer JVM fields; merge with /metrics as fallback. */
+        const merged = Object.assign({}, metrics, jvm);
+
+        tmSetText('tm-uptime', TMMetrics.uptime(metrics));
+        tmSetText('tm-active-users', TMMetrics.activeUsers(metrics).toLocaleString());
+        tmSetText('tm-total-requests', TMMetrics.totalRequests(metrics).toLocaleString());
+        tmSetText('tm-avg-response', TMMetrics.avgResponseMs(metrics).toLocaleString());
+
+        const heapUsed = TMMetrics.heapUsedMb(merged);
+        const heapMax = TMMetrics.heapMaxMb(merged);
+        tmSetText('tm-heap', heapUsed.toLocaleString() + ' / ' + heapMax.toLocaleString());
+        tmSetText('tm-threads', TMMetrics.threadCount(merged).toLocaleString());
+        tmSetText('tm-gc-count', TMMetrics.gcCount(merged).toLocaleString());
+        tmSetText('tm-gc-time', TMMetrics.gcTime(merged).toLocaleString());
+
+        tmSetText('tm-ws-conn', tmNum(tmPick(ws, ['connections', 'connectionCount'], 0)).toLocaleString());
+        tmSetText('tm-ws-users', tmNum(tmPick(ws, ['users', 'userCount'], 0)).toLocaleString());
+
+        tmUpdateSamplesLineChart(samplesChart, samples);
+        tmUpdateHeapDoughnut(heapChart, heapUsed, heapMax);
+        tmUpdateOrdersBar(ordersChart, TMMetrics.ordersProcessed(merged), TMMetrics.ordersFailed(merged));
+
+        const breakers = await apiCall('GET', '/metrics/circuit-breakers');
+        renderCircuitBreakerTable('tm-cb-tbody', breakers, false);
+
+        tmSetText('tm-last-updated', 'updated ' + new Date().toLocaleTimeString());
+      }
+
+      startAutoRefresh(refresh, 5000);
+    });
+  </script>
+</body></html>
