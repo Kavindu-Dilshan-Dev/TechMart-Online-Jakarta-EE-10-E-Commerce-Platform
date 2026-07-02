@@ -1,0 +1,47 @@
+# =====================================================================
+# TechMart Online - JMS resources for WildFly (ActiveMQ Artemis)
+# Requires standalone-full.xml (it includes the messaging-activemq subsystem).
+#
+# Run:
+#   $WILDFLY_HOME/bin/jboss-cli.sh --connect --file=wildfly-config/create-jms-resources.cli
+#   (Windows: jboss-cli.bat --connect --file=wildfly-config\create-jms-resources.cli)
+#
+# Creates the destinations and pooled connection factory whose JNDI names are
+# referenced by the EJBs/MDBs (see com.kavindu.techmart.ejb.util.JmsConstants).
+# =====================================================================
+
+batch
+
+# ---- Point-to-point queues -------------------------------------------
+/subsystem=messaging-activemq/server=default/jms-queue=OrderQueue:add( \
+  entries=["java:/jms/queue/OrderQueue"], durable=true)
+
+/subsystem=messaging-activemq/server=default/jms-queue=InventoryQueue:add( \
+  entries=["java:/jms/queue/InventoryQueue"], durable=true)
+
+/subsystem=messaging-activemq/server=default/jms-queue=EmailQueue:add( \
+  entries=["java:/jms/queue/EmailQueue"], durable=true)
+
+# ---- Publish/subscribe topic -----------------------------------------
+/subsystem=messaging-activemq/server=default/jms-topic=NotificationTopic:add( \
+  entries=["java:/jms/topic/NotificationTopic"])
+
+# ---- Tuned pooled connection factory (XA) ----------------------------
+/subsystem=messaging-activemq/server=default/pooled-connection-factory=TechMart:add( \
+  entries=["java:/jms/cf/TechMart"], \
+  connectors=["in-vm"], \
+  transaction=xa, \
+  min-pool-size=5, \
+  max-pool-size=50)
+
+# ---- Allow the EmailMDB to redeliver on rollback, then dead-letter ----
+# Increase redelivery attempts and add a delay so a transient SMTP outage
+# (circuit OPEN) is retried rather than dropped.
+/subsystem=messaging-activemq/server=default/address-setting=jms.queue.EmailQueue:add( \
+  max-delivery-attempts=10, \
+  redelivery-delay=10000, \
+  dead-letter-address=jms.queue.DLQ, \
+  expiry-address=jms.queue.ExpiryQueue)
+
+run-batch
+reload

@@ -1,0 +1,58 @@
+# =====================================================================
+# TechMart Online - MySQL datasource for WildFly (standalone-full.xml)
+#
+# Prerequisites:
+#   1. MySQL 8 running with database `techmart` (see database/schema.sql).
+#   2. A DB user the datasource connects as. Create one, e.g.:
+#         CREATE USER 'techmart'@'%' IDENTIFIED BY 'techmart';
+#         GRANT ALL PRIVILEGES ON techmart.* TO 'techmart'@'%';
+#         FLUSH PRIVILEGES;
+#   3. The MySQL Connector/J jar available on disk (mysql-connector-j-8.3.0.jar).
+#      Maven downloads it to:
+#        ~/.m2/repository/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar
+#
+# Run (server must be started with standalone-full.xml):
+#   $WILDFLY_HOME/bin/jboss-cli.sh --connect --file=wildfly-config/create-datasource.cli
+#   (Windows: jboss-cli.bat --connect --file=wildfly-config\create-datasource.cli)
+#
+# EDIT the --resources path below to point at your connector jar.
+# =====================================================================
+
+# 1) Register the MySQL JDBC driver as a JBoss module (client-side, offline-safe).
+module add --name=com.mysql \
+  --resources=/path/to/mysql-connector-j-8.3.0.jar \
+  --dependencies=java.se,jakarta.transaction.api
+
+# 2) Register the JDBC driver with the datasources subsystem.
+/subsystem=datasources/jdbc-driver=mysql:add( \
+  driver-name=mysql, \
+  driver-module-name=com.mysql, \
+  driver-class-name=com.mysql.cj.jdbc.Driver, \
+  driver-xa-datasource-class-name=com.mysql.cj.jdbc.MysqlXADataSource)
+
+# 3) Create the datasource with a tuned connection pool.
+data-source add \
+  --name=TechMartDS \
+  --jndi-name=java:jboss/datasources/TechMartDS \
+  --driver-name=mysql \
+  --connection-url=jdbc:mysql://localhost:3306/techmart?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true \
+  --user-name=techmart \
+  --password=techmart \
+  --min-pool-size=10 \
+  --max-pool-size=50 \
+  --pool-prefill=true \
+  --idle-timeout-minutes=5 \
+  --blocking-timeout-wait-millis=5000 \
+  --background-validation=true \
+  --background-validation-millis=60000 \
+  --valid-connection-checker-class-name=org.jboss.jca.adapters.jdbc.extensions.mysql.MySQLValidConnectionChecker \
+  --exception-sorter-class-name=org.jboss.jca.adapters.jdbc.extensions.mysql.MySQLExceptionSorter \
+  --check-valid-connection-sql="SELECT 1" \
+  --enabled=true \
+  --use-ccm=true \
+  --prepared-statements-cache-size=64 \
+  --share-prepared-statements=true
+
+# 4) Verify and reload.
+/subsystem=datasources/data-source=TechMartDS:test-connection-in-pool
+reload

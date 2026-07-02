@@ -1,0 +1,41 @@
+batch
+
+# Create TechMartDS datasource
+data-source add \
+  --name=TechMartDS \
+  --jndi-name=java:jboss/datasources/TechMartDS \
+  --driver-name=mysql \
+  --connection-url=jdbc:mysql://localhost:3306/techmart?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true \
+  --user-name=techmart \
+  --password=techmart \
+  --min-pool-size=10 \
+  --max-pool-size=50 \
+  --pool-prefill=true \
+  --idle-timeout-minutes=5 \
+  --blocking-timeout-wait-millis=5000 \
+  --background-validation=true \
+  --background-validation-millis=60000 \
+  --valid-connection-checker-class-name=org.jboss.jca.adapters.jdbc.extensions.mysql.MySQLValidConnectionChecker \
+  --exception-sorter-class-name=org.jboss.jca.adapters.jdbc.extensions.mysql.MySQLExceptionSorter \
+  --check-valid-connection-sql="SELECT 1" \
+  --enabled=true \
+  --use-ccm=true \
+  --prepared-statements-cache-size=64 \
+  --share-prepared-statements=true
+
+# JMS Queues
+/subsystem=messaging-activemq/server=default/jms-queue=OrderQueue:add(entries=["java:/jms/queue/OrderQueue"],durable=true)
+/subsystem=messaging-activemq/server=default/jms-queue=InventoryQueue:add(entries=["java:/jms/queue/InventoryQueue"],durable=true)
+/subsystem=messaging-activemq/server=default/jms-queue=EmailQueue:add(entries=["java:/jms/queue/EmailQueue"],durable=true)
+
+# JMS Topic
+/subsystem=messaging-activemq/server=default/jms-topic=NotificationTopic:add(entries=["java:/jms/topic/NotificationTopic"])
+
+# Pooled connection factory
+/subsystem=messaging-activemq/server=default/pooled-connection-factory=TechMart:add(entries=["java:/jms/cf/TechMart"],connectors=["in-vm"],transaction=xa,min-pool-size=5,max-pool-size=50)
+
+# Email queue redelivery policy
+/subsystem=messaging-activemq/server=default/address-setting=jms.queue.EmailQueue:add(max-delivery-attempts=10,redelivery-delay=10000,dead-letter-address=jms.queue.DLQ,expiry-address=jms.queue.ExpiryQueue)
+
+run-batch
+reload
