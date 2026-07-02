@@ -1,0 +1,8 @@
+.git
+.idea
+docs/
+plan/
+references/
+tools/
+**/target/
+*.md
