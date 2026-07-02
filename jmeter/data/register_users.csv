@@ -1,0 +1,11 @@
+username,email,firstName,lastName,phone,password
+testuser1,testuser1@techmart.lk,Kasun,Silva,+94771000001,password123
+testuser2,testuser2@techmart.lk,Malika,Fernando,+94771000002,password123
+testuser3,testuser3@techmart.lk,Dinesh,Perera,+94771000003,password123
+testuser4,testuser4@techmart.lk,Amara,Jayawardena,+94771000004,password123
+testuser5,testuser5@techmart.lk,Nuwan,Dissanayake,+94771000005,password123
+testuser6,testuser6@techmart.lk,Priya,Rathnayake,+94771000006,password123
+testuser7,testuser7@techmart.lk,Chamara,Wickramasinghe,+94771000007,password123
+testuser8,testuser8@techmart.lk,Sanduni,Gunasekara,+94771000008,password123
+testuser9,testuser9@techmart.lk,Ruwan,Bandara,+94771000009,password123
+testuser10,testuser10@techmart.lk,Irosha,Karunanayake,+94771000010,password123
