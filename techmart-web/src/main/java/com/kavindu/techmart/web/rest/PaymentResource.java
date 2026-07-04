@@ -3,6 +3,7 @@ package com.kavindu.techmart.web.rest;
 import com.kavindu.techmart.common.dto.PayHereCheckoutDTO;
 import com.kavindu.techmart.common.dto.PaymentDTO;
 import com.kavindu.techmart.common.interfaces.PaymentServiceLocal;
+import com.kavindu.techmart.web.metrics.BusinessMetrics;
 import com.kavindu.techmart.web.rest.request.PaymentCallbackRequest;
 import com.kavindu.techmart.web.rest.request.PaymentInitiateRequest;
 import com.kavindu.techmart.web.security.RequestContext;
@@ -40,6 +41,9 @@ public class PaymentResource {
     @Inject
     private RequestContext requestContext;
 
+    @Inject
+    private BusinessMetrics businessMetrics;
+
     @POST
     @Path("/payhere/start")
     @SecurityRequirement(name = "BearerAuth")
@@ -61,6 +65,12 @@ public class PaymentResource {
             form.forEach((k, v) -> params.put(k, (v != null && !v.isEmpty()) ? v.get(0) : null));
         }
         paymentService.handleNotify(params);
+        // PayHere status_code: 2=success, -1=cancelled, -2=failed, -3=chargedback
+        if ("2".equals(params.get("status_code"))) {
+            businessMetrics.recordPaymentSucceeded();
+        } else {
+            businessMetrics.recordPaymentFailed();
+        }
         return Response.ok("OK").build();
     }
 
@@ -71,6 +81,7 @@ public class PaymentResource {
     public Response initiate(PaymentInitiateRequest request) {
         requestContext.requireAuthenticated();
         PaymentDTO dto = paymentService.initiatePayment(request.getOrderId(), request.getMethod());
+        businessMetrics.recordPaymentInitiated();
         return RestSupport.ok(dto);
     }
 

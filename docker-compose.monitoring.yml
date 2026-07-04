@@ -1,0 +1,188 @@
+services:
+
+  # ── Prometheus ────────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - techmart-net
+      - monitoring-net
+    restart: unless-stopped
+
+  # ── Grafana ───────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.3
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: techmart123
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/techmart-performance.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - influxdb
+      - loki
+    networks:
+      - monitoring-net
+    restart: unless-stopped
+
+  # ── InfluxDB (JMeter results store) ──────────────────────────────────────────
+  influxdb:
+    image: influxdb:1.8
+    environment:
+      INFLUXDB_DB: jmeter
+      INFLUXDB_HTTP_AUTH_ENABLED: "false"
+      INFLUXDB_DATA_ENGINE: tsm1
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    ports:
+      - "8086:8086"
+    networks:
+      - monitoring-net
+    restart: unless-stopped
+
+  # ── Node Exporter (host OS metrics) ──────────────────────────────────────────
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring-net
+    restart: unless-stopped
+
+  # ── MySQL Exporter ────────────────────────────────────────────────────────────
+  mysql-exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    environment:
+      DATA_SOURCE_NAME: "techmart:techmart@tcp(mysql:3306)/techmart"
+    command:
+      - '--collect.global_status'
+      - '--collect.global_variables'
+      - '--collect.info_schema.innodb_metrics'
+      - '--collect.info_schema.processlist'
+      - '--collect.perf_schema.tablelocks'
+      - '--collect.perf_schema.eventsstatements'
+      - '--collect.perf_schema.eventsstatementssum'
+    ports:
+      - "9104:9104"
+    networks:
+      - techmart-net
+      - monitoring-net
+    restart: unless-stopped
+
+  # ── cAdvisor (Docker container metrics) ──────────────────────────────────────
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    ports:
+      - "8081:8080"
+    networks:
+      - monitoring-net
+    privileged: true
+    devices:
+      - /dev/kmsg
+    restart: unless-stopped
+
+  # ── Loki (log aggregation) ────────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.4
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+    networks:
+      - monitoring-net
+    restart: unless-stopped
+
+  # ── Promtail (log shipper: WildFly → Loki) ───────────────────────────────────
+  promtail:
+    image: grafana/promtail:2.9.4
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - wildfly-logs:/wildfly/logs:ro
+    command: -config.file=/etc/promtail/promtail-config.yml
+    ports:
+      - "9080:9080"
+    depends_on:
+      - loki
+    networks:
+      - monitoring-net
+    restart: unless-stopped
+
+  # ── Jaeger (distributed tracing) ─────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:1.56
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: memory
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC (WildFly → Jaeger)
+      - "4318:4318"     # OTLP HTTP
+    networks:
+      - techmart-net    # reachable by wildfly as "jaeger:4317"
+      - monitoring-net
+    restart: unless-stopped
+
+  # ── Alertmanager (threshold alerts → email) ───────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    ports:
+      - "9093:9093"
+    networks:
+      - monitoring-net
+    restart: unless-stopped
+
+networks:
+  techmart-net:
+    external: true
+    name: techmart-net
+  monitoring-net:
+    name: monitoring-net
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  influxdb-data:
+  loki-data:
+  alertmanager-data:
+  wildfly-logs:
+    external: true
+    name: techmart-wildfly-logs

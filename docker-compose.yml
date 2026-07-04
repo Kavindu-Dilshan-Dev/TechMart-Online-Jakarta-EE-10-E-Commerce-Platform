@@ -17,17 +17,43 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+    networks:
+      - techmart-net
 
   wildfly:
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      # JMX Prometheus exporter agent — exposes JVM/WildFly metrics on port 9404
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/opt/jboss/wildfly/jmx-exporter.jar=9404:/opt/jboss/wildfly/jmx-config.yml
+      # OpenTelemetry / MicroProfile Telemetry — sends traces to Jaeger via OTLP
+      OTEL_SERVICE_NAME: techmart
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_PROPAGATORS: tracecontext,baggage
     ports:
       - "8080:8080"
       - "9990:9990"
+      - "9404:9404"
+    volumes:
+      # Share WildFly server.log with Promtail for log shipping to Loki
+      - wildfly-logs:/opt/jboss/wildfly/standalone/log
     depends_on:
       mysql:
         condition: service_healthy
+    networks:
+      - techmart-net
+
+networks:
+  techmart-net:
+    name: techmart-net
 
 volumes:
   techmart-mysql-data:
+  wildfly-logs:
+    name: techmart-wildfly-logs

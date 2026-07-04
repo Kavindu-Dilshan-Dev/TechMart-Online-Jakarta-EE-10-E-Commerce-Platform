@@ -1,0 +1,525 @@
+{
+  "title": "TechMart Performance Dashboard",
+  "uid": "techmart-perf",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["techmart", "performance", "jmeter"],
+  "panels": [
+
+    { "type": "row", "title": "JMeter Test Results", "id": 1,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "collapsed": false },
+
+    {
+      "id": 2, "type": "stat", "title": "Avg Response Time (ms)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto",
+        "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "thresholds": {
+          "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 500 },
+            { "color": "red", "value": 2000 }
+          ]
+        }}
+      },
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+        "rawQuery": true,
+        "query": "SELECT mean(\"avg\") FROM \"jmeter\" WHERE (\"transaction\" = 'all') AND $timeFilter GROUP BY time($__interval) fill(null)",
+        "resultFormat": "time_series"
+      }]
+    },
+
+    {
+      "id": 3, "type": "stat", "title": "Error Rate (%)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto",
+        "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "thresholds": {
+          "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red", "value": 5 }
+          ]
+        }}
+      },
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+        "rawQuery": true,
+        "query": "SELECT (sum(\"countError\") / sum(\"count\")) * 100 FROM \"jmeter\" WHERE (\"statut\" = 'all') AND $timeFilter GROUP BY time($__interval) fill(null)",
+        "resultFormat": "time_series"
+      }]
+    },
+
+    {
+      "id": 4, "type": "stat", "title": "Throughput (req/s)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto",
+        "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "thresholds": {
+          "mode": "absolute", "steps": [{ "color": "blue", "value": null }]
+        }}
+      },
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+        "rawQuery": true,
+        "query": "SELECT mean(\"throughput\") FROM \"jmeter\" WHERE (\"transaction\" = 'all') AND $timeFilter GROUP BY time($__interval) fill(null)",
+        "resultFormat": "time_series"
+      }]
+    },
+
+    {
+      "id": 5, "type": "stat", "title": "Active Virtual Users",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto",
+        "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": {
+          "mode": "absolute", "steps": [{ "color": "purple", "value": null }]
+        }}
+      },
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+        "rawQuery": true,
+        "query": "SELECT mean(\"maxAT\") FROM \"jmeter\" WHERE (\"transaction\" = 'all') AND $timeFilter GROUP BY time($__interval) fill(null)",
+        "resultFormat": "time_series"
+      }]
+    },
+
+    {
+      "id": 6, "type": "timeseries", "title": "Response Time by Transaction (avg ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+        "rawQuery": true,
+        "query": "SELECT mean(\"avg\") FROM \"jmeter\" WHERE (\"statut\" = 'all') AND $timeFilter GROUP BY time($__interval), \"transaction\" fill(null)",
+        "resultFormat": "time_series"
+      }]
+    },
+
+    {
+      "id": 7, "type": "timeseries", "title": "Percentile Response Times — All Transactions",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+          "rawQuery": true,
+          "query": "SELECT mean(\"pct50.0\") FROM \"jmeter\" WHERE (\"transaction\" = 'all') AND $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series",
+          "alias": "P50"
+        },
+        {
+          "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+          "rawQuery": true,
+          "query": "SELECT mean(\"pct90.0\") FROM \"jmeter\" WHERE (\"transaction\" = 'all') AND $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series",
+          "alias": "P90"
+        },
+        {
+          "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+          "rawQuery": true,
+          "query": "SELECT mean(\"pct99.0\") FROM \"jmeter\" WHERE (\"transaction\" = 'all') AND $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series",
+          "alias": "P99"
+        }
+      ]
+    },
+
+    {
+      "id": 8, "type": "timeseries", "title": "Error Count by Transaction",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+        "rawQuery": true,
+        "query": "SELECT sum(\"countError\") FROM \"jmeter\" WHERE (\"statut\" = 'all') AND $timeFilter GROUP BY time($__interval), \"transaction\" fill(null)",
+        "resultFormat": "time_series"
+      }]
+    },
+
+    {
+      "id": 9, "type": "timeseries", "title": "Throughput by Transaction (req/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "influxdb-jmeter" },
+        "rawQuery": true,
+        "query": "SELECT mean(\"throughput\") FROM \"jmeter\" WHERE (\"statut\" = 'all') AND $timeFilter GROUP BY time($__interval), \"transaction\" fill(null)",
+        "resultFormat": "time_series"
+      }]
+    },
+
+    { "type": "row", "title": "WildFly JVM Internals", "id": 10,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 }, "collapsed": false },
+
+    {
+      "id": 11, "type": "timeseries", "title": "JVM Heap Memory",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "jvm_memory_heap_used_bytes{job=\"wildfly-jmx\"}",
+          "legendFormat": "Used"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "jvm_memory_heap_committed_bytes{job=\"wildfly-jmx\"}",
+          "legendFormat": "Committed"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "jvm_memory_heap_max_bytes{job=\"wildfly-jmx\"}",
+          "legendFormat": "Max"
+        }
+      ]
+    },
+
+    {
+      "id": 12, "type": "timeseries", "title": "JVM Thread Count",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "jvm_threads_ThreadCount{job=\"wildfly-jmx\"}",
+          "legendFormat": "Current Threads"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "jvm_threads_PeakThreadCount{job=\"wildfly-jmx\"}",
+          "legendFormat": "Peak Threads"
+        }
+      ]
+    },
+
+    {
+      "id": 13, "type": "timeseries", "title": "GC Collection Time Rate (ms/s)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+        "expr": "rate(jvm_gc_collection_time_ms_total{job=\"wildfly-jmx\"}[1m])",
+        "legendFormat": "GC {{gc}}"
+      }]
+    },
+
+    {
+      "id": 14, "type": "timeseries", "title": "WildFly Datasource Pool (TechMartDS)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "wildfly_datasource_pool_ActiveCount{job=\"wildfly-jmx\"}",
+          "legendFormat": "Active Connections"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "wildfly_datasource_pool_InUseCount{job=\"wildfly-jmx\"}",
+          "legendFormat": "In Use"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "wildfly_datasource_pool_AvailableCount{job=\"wildfly-jmx\"}",
+          "legendFormat": "Available"
+        }
+      ]
+    },
+
+    {
+      "id": 15, "type": "timeseries", "title": "JVM Non-Heap Memory",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "jvm_memory_nonheap_used_bytes{job=\"wildfly-jmx\"}",
+          "legendFormat": "NonHeap Used"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "jvm_memory_nonheap_committed_bytes{job=\"wildfly-jmx\"}",
+          "legendFormat": "NonHeap Committed"
+        }
+      ]
+    },
+
+    { "type": "row", "title": "Container Resources (cAdvisor)", "id": 20,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 }, "collapsed": false },
+
+    {
+      "id": 21, "type": "timeseries", "title": "Container CPU Usage (%)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+        "expr": "rate(container_cpu_usage_seconds_total{name=~\"tech-mart.*|techmart.*\",name!=\"\"}[1m]) * 100",
+        "legendFormat": "{{name}}"
+      }]
+    },
+
+    {
+      "id": 22, "type": "timeseries", "title": "Container Memory Usage",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+        "expr": "container_memory_usage_bytes{name=~\"tech-mart.*|techmart.*\",name!=\"\"}",
+        "legendFormat": "{{name}}"
+      }]
+    },
+
+    {
+      "id": 23, "type": "timeseries", "title": "Container Network I/O",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(container_network_receive_bytes_total{name=~\"tech-mart.*|techmart.*\",name!=\"\"}[1m])",
+          "legendFormat": "{{name}} RX"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(container_network_transmit_bytes_total{name=~\"tech-mart.*|techmart.*\",name!=\"\"}[1m])",
+          "legendFormat": "{{name}} TX"
+        }
+      ]
+    },
+
+    {
+      "id": 24, "type": "timeseries", "title": "Host CPU Usage (%)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 47 },
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+        "expr": "(1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m]))) * 100",
+        "legendFormat": "CPU Usage"
+      }]
+    },
+
+    { "type": "row", "title": "Business Metrics (Micrometer)", "id": 40,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 72 }, "collapsed": false },
+
+    {
+      "id": 41, "type": "timeseries", "title": "Orders — Placed vs Cancelled",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 73 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(techmart_orders_placed_total[1m])",
+          "legendFormat": "Orders Placed/s"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(techmart_orders_cancelled_total[1m])",
+          "legendFormat": "Orders Cancelled/s"
+        }
+      ]
+    },
+
+    {
+      "id": 42, "type": "timeseries", "title": "Payments — Initiated / Succeeded / Failed",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 73 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(techmart_payments_initiated_total[1m])",
+          "legendFormat": "Initiated/s"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(techmart_payments_succeeded_total[1m])",
+          "legendFormat": "Succeeded/s"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(techmart_payments_failed_total[1m])",
+          "legendFormat": "Failed/s"
+        }
+      ]
+    },
+
+    {
+      "id": 43, "type": "timeseries", "title": "User Activity — Logins & Registrations",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 73 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(techmart_users_logins_total[1m])",
+          "legendFormat": "Logins/s"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(techmart_users_registered_total[1m])",
+          "legendFormat": "Registrations/s"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(techmart_cart_items_added_total[1m])",
+          "legendFormat": "Cart Items Added/s"
+        }
+      ]
+    },
+
+    {
+      "id": 44, "type": "timeseries", "title": "HTTP Request Duration Heatmap (by URI)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 81 },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+        "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(techmart_http_request_duration_seconds_bucket[1m]))) * 1000",
+        "legendFormat": "P95 {{uri}}"
+      }]
+    },
+
+    {
+      "id": 45, "type": "stat", "title": "Payment Success Rate",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 81 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "thresholds": {
+          "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 0.85 },
+            { "color": "green", "value": 0.95 }
+          ]
+        }}
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+        "expr": "rate(techmart_payments_succeeded_total[5m]) / (rate(techmart_payments_initiated_total[5m]) + 0.001)",
+        "legendFormat": "Payment Success Rate"
+      }]
+    },
+
+    {
+      "id": 46, "type": "stat", "title": "Active Users (now)",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 81 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": {
+          "mode": "absolute", "steps": [{ "color": "blue", "value": null }]
+        }}
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+        "expr": "techmart_active_users",
+        "legendFormat": "Active Users"
+      }]
+    },
+
+    { "type": "row", "title": "MySQL Database", "id": 30,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 55 }, "collapsed": false },
+
+    {
+      "id": 31, "type": "timeseries", "title": "MySQL Queries per Second",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 56 },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+        "expr": "rate(mysql_global_status_queries{job=\"mysql-exporter\"}[1m])",
+        "legendFormat": "Queries/s"
+      }]
+    },
+
+    {
+      "id": 32, "type": "timeseries", "title": "MySQL Active Connections",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 56 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "mysql_global_status_threads_connected{job=\"mysql-exporter\"}",
+          "legendFormat": "Threads Connected"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "mysql_global_status_threads_running{job=\"mysql-exporter\"}",
+          "legendFormat": "Threads Running"
+        }
+      ]
+    },
+
+    {
+      "id": 33, "type": "timeseries", "title": "MySQL Slow Queries & Errors",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 56 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(mysql_global_status_slow_queries{job=\"mysql-exporter\"}[1m])",
+          "legendFormat": "Slow Queries/s"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "rate(mysql_global_status_connection_errors_total{job=\"mysql-exporter\"}[1m])",
+          "legendFormat": "Connection Errors/s"
+        }
+      ]
+    },
+
+    {
+      "id": 34, "type": "timeseries", "title": "MySQL InnoDB Buffer Pool",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 64 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "mysql_global_status_innodb_buffer_pool_bytes_data{job=\"mysql-exporter\"}",
+          "legendFormat": "Data"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+          "expr": "mysql_global_variables_innodb_buffer_pool_size{job=\"mysql-exporter\"}",
+          "legendFormat": "Total Pool Size"
+        }
+      ]
+    },
+
+    {
+      "id": 35, "type": "timeseries", "title": "MySQL InnoDB Row Operations",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 64 },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-techmart" },
+        "expr": "rate(mysql_global_status_innodb_row_ops_total{job=\"mysql-exporter\"}[1m])",
+        "legendFormat": "{{operation}}"
+      }]
+    }
+  ]
+}

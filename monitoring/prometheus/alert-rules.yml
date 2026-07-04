@@ -1,0 +1,160 @@
+groups:
+
+  # ── WildFly JVM ──────────────────────────────────────────────────────────────
+  - name: techmart.jvm
+    interval: 30s
+    rules:
+      - alert: WildFlyHeapCritical
+        expr: jvm_memory_heap_used_bytes{job="wildfly-jmx"} / jvm_memory_heap_max_bytes{job="wildfly-jmx"} > 0.85
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "WildFly heap memory critical (>85%)"
+          description: "Heap usage is {{ printf \"%.1f\" (mulf (divf .Value 1) 100) }}%. Consider increasing -Xmx or investigating memory leaks."
+
+      - alert: WildFlyHeapWarning
+        expr: jvm_memory_heap_used_bytes{job="wildfly-jmx"} / jvm_memory_heap_max_bytes{job="wildfly-jmx"} > 0.70
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WildFly heap memory high (>70%)"
+          description: "Heap usage has been above 70% for 5 minutes."
+
+      - alert: WildFlyHighThreadCount
+        expr: jvm_threads_ThreadCount{job="wildfly-jmx"} > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WildFly thread count high (>300)"
+          description: "Current thread count: {{ .Value }}. Possible thread leak or concurrency bottleneck."
+
+      - alert: WildFlyDatasourcePoolExhausted
+        expr: wildfly_datasource_pool_AvailableCount{job="wildfly-jmx"} < 2
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "WildFly datasource pool near exhaustion (<2 connections available)"
+          description: "TechMartDS pool: {{ .Value }} connections available. Requests will block."
+
+  # ── Containers (cAdvisor) ─────────────────────────────────────────────────
+  - name: techmart.containers
+    interval: 30s
+    rules:
+      - alert: ContainerCpuHigh
+        expr: rate(container_cpu_usage_seconds_total{name=~"tech-mart.*|techmart.*",name!=""}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container CPU high (>80%) — {{ $labels.name }}"
+          description: "Container {{ $labels.name }} CPU at {{ printf \"%.1f\" .Value }}% for 5 minutes."
+
+      - alert: ContainerMemoryHigh
+        expr: container_memory_usage_bytes{name=~"tech-mart.*|techmart.*",name!=""} > 1.5e9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container memory high (>1.5 GB) — {{ $labels.name }}"
+          description: "Container {{ $labels.name }} using {{ printf \"%.0f\" (divf .Value 1048576) }} MB."
+
+  # ── MySQL ─────────────────────────────────────────────────────────────────
+  - name: techmart.mysql
+    interval: 30s
+    rules:
+      - alert: MySQLConnectionsHigh
+        expr: mysql_global_status_threads_connected{job="mysql-exporter"} / mysql_global_variables_max_connections{job="mysql-exporter"} > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MySQL connections high (>80% of max_connections)"
+          description: "{{ .Value | humanizePercentage }} of max_connections used."
+
+      - alert: MySQLSlowQueriesHigh
+        expr: rate(mysql_global_status_slow_queries{job="mysql-exporter"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MySQL slow query rate high (>5/s)"
+          description: "Slow query rate: {{ printf \"%.2f\" .Value }}/s. Review query indexes."
+
+      - alert: MySQLDown
+        expr: mysql_up{job="mysql-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MySQL is DOWN"
+          description: "The MySQL instance is not responding to the exporter."
+
+  # ── Host (Node Exporter) ──────────────────────────────────────────────────
+  - name: techmart.host
+    interval: 30s
+    rules:
+      - alert: HostHighCpuLoad
+        expr: (1 - avg(rate(node_cpu_seconds_total{mode="idle",job="node-exporter"}[5m]))) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host CPU load high (>80%)"
+          description: "CPU usage has been above 80% for 10 minutes."
+
+      - alert: HostLowMemory
+        expr: node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"} * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host free memory critically low (<15%)"
+          description: "Only {{ printf \"%.1f\" .Value }}% of RAM available."
+
+      - alert: HostDiskSpaceLow
+        expr: node_filesystem_avail_bytes{job="node-exporter",mountpoint="/"} / node_filesystem_size_bytes{job="node-exporter",mountpoint="/"} * 100 < 10
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host disk space critically low (<10% on /)"
+          description: "Only {{ printf \"%.1f\" .Value }}% disk space remaining."
+
+  # ── Business Metrics (Micrometer) ─────────────────────────────────────────
+  - name: techmart.business
+    interval: 60s
+    rules:
+      - alert: HighPaymentFailureRate
+        expr: >
+          rate(techmart_payments_failed_total[5m])
+          / (rate(techmart_payments_initiated_total[5m]) + 0.001) > 0.15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Payment failure rate critical (>15%)"
+          description: "{{ printf \"%.1f\" (mulf .Value 100) }}% of payments are failing."
+
+      - alert: HighOrderCancellationRate
+        expr: >
+          rate(techmart_orders_cancelled_total[10m])
+          / (rate(techmart_orders_placed_total[10m]) + 0.001) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Order cancellation rate high (>20%)"
+          description: "{{ printf \"%.1f\" (mulf .Value 100) }}% of orders are being cancelled."
+
+      - alert: HighApiResponseTime
+        expr: techmart_response_time_avg_ms > 3000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Average API response time high (>3s)"
+          description: "Current average: {{ printf \"%.0f\" .Value }}ms."

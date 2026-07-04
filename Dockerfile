@@ -36,11 +36,19 @@ RUN $JBOSS_HOME/bin/jboss-cli.sh --file=/tmp/configure.cli
 COPY --from=builder /build/techmart-ear/target/techmart.ear \
     $JBOSS_HOME/standalone/deployments/techmart.ear
 
-RUN chown -R jboss:jboss $JBOSS_HOME/modules/com/mysql $JBOSS_HOME/standalone/
+# Add JMX Prometheus exporter agent for Prometheus metrics scraping
+ARG JMX_EXPORTER_VERSION=0.20.0
+RUN curl -sSL \
+    "https://github.com/prometheus/jmx_exporter/releases/download/${JMX_EXPORTER_VERSION}/jmx_prometheus_javaagent-${JMX_EXPORTER_VERSION}.jar" \
+    -o $JBOSS_HOME/jmx-exporter.jar
+COPY docker/jmx-config.yml $JBOSS_HOME/jmx-config.yml
+
+RUN chown -R jboss:jboss $JBOSS_HOME/modules/com/mysql $JBOSS_HOME/standalone/ \
+    $JBOSS_HOME/jmx-exporter.jar $JBOSS_HOME/jmx-config.yml
 
 USER jboss
 
-EXPOSE 8080 9990
+EXPOSE 8080 9990 9404
 
 CMD ["/opt/jboss/wildfly/bin/standalone.sh", \
      "-b",           "0.0.0.0", \

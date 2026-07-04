@@ -2,6 +2,7 @@ package com.kavindu.techmart.web.rest;
 
 import com.kavindu.techmart.common.dto.UserDTO;
 import com.kavindu.techmart.common.interfaces.AuthServiceLocal;
+import com.kavindu.techmart.web.metrics.BusinessMetrics;
 import com.kavindu.techmart.web.rest.request.ChangePasswordRequest;
 import com.kavindu.techmart.web.rest.request.LoginRequest;
 import com.kavindu.techmart.web.rest.request.RegisterRequest;
@@ -32,11 +33,15 @@ public class AuthResource {
     @Inject
     private RequestContext requestContext;
 
+    @Inject
+    private BusinessMetrics businessMetrics;
+
     @POST
     @Path("/login")
     @Operation(summary = "Login and obtain a session token")
     public Response login(LoginRequest request) {
         UserDTO user = authService.login(request.getUsername(), request.getPassword());
+        businessMetrics.recordUserLogin();
         return RestSupport.ok(user, "Login successful");
     }
 
@@ -51,6 +56,7 @@ public class AuthResource {
         dto.setLastName(request.getLastName());
         dto.setPhone(request.getPhone());
         UserDTO created = authService.register(dto, request.getPassword());
+        businessMetrics.recordUserRegistered();
         return RestSupport.created(created, "Registration successful");
     }
 

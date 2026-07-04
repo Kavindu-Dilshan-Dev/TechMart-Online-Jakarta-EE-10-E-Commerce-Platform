@@ -1,0 +1,140 @@
+{
+  "title": "TechMart Application Logs",
+  "uid": "techmart-logs",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["techmart", "logs", "loki"],
+  "templating": {
+    "list": [
+      {
+        "name": "level",
+        "label": "Log Level",
+        "type": "custom",
+        "query": "INFO,WARN,ERROR",
+        "current": { "text": "ERROR", "value": "ERROR" },
+        "options": [
+          { "text": "INFO",  "value": "INFO"  },
+          { "text": "WARN",  "value": "WARN"  },
+          { "text": "ERROR", "value": "ERROR" }
+        ],
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    { "type": "row", "title": "Log Overview", "id": 1,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "collapsed": false },
+
+    {
+      "id": 2, "type": "stat", "title": "Error Count (last 1h)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": {
+          "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red", "value": 10 }
+          ]
+        }}
+      },
+      "targets": [{
+        "datasource": { "type": "loki", "uid": "loki-techmart" },
+        "expr": "count_over_time({job=\"wildfly\",level=\"ERROR\"}[$__range])",
+        "legendFormat": "Errors"
+      }]
+    },
+
+    {
+      "id": 3, "type": "stat", "title": "Warning Count (last 1h)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": {
+          "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 5 },
+            { "color": "orange", "value": 50 }
+          ]
+        }}
+      },
+      "targets": [{
+        "datasource": { "type": "loki", "uid": "loki-techmart" },
+        "expr": "count_over_time({job=\"wildfly\",level=\"WARN\"}[$__range])",
+        "legendFormat": "Warnings"
+      }]
+    },
+
+    {
+      "id": 4, "type": "timeseries", "title": "Log Rate by Level",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki-techmart" },
+          "expr": "sum(rate({job=\"wildfly\",level=\"ERROR\"}[1m]))",
+          "legendFormat": "ERROR"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "loki-techmart" },
+          "expr": "sum(rate({job=\"wildfly\",level=\"WARN\"}[1m]))",
+          "legendFormat": "WARN"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "loki-techmart" },
+          "expr": "sum(rate({job=\"wildfly\",level=\"INFO\"}[1m]))",
+          "legendFormat": "INFO"
+        }
+      ]
+    },
+
+    { "type": "row", "title": "WildFly Log Stream", "id": 10,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 }, "collapsed": false },
+
+    {
+      "id": 11, "type": "logs", "title": "WildFly Server Log",
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 8 },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [{
+        "datasource": { "type": "loki", "uid": "loki-techmart" },
+        "expr": "{job=\"wildfly\",level=~\"$level\"}",
+        "legendFormat": ""
+      }]
+    },
+
+    { "type": "row", "title": "Error Details", "id": 20,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 }, "collapsed": false },
+
+    {
+      "id": 21, "type": "logs", "title": "Errors Only",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 25 },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [{
+        "datasource": { "type": "loki", "uid": "loki-techmart" },
+        "expr": "{job=\"wildfly\",level=\"ERROR\"}",
+        "legendFormat": ""
+      }]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+---
+startDelaySeconds: 0
+ssl: false
+lowercaseOutputName: false
+lowercaseOutputLabelNames: false
+
+rules:
+  # JVM Heap Memory
+  - pattern: 'java.lang<type=Memory><HeapMemoryUsage>(\w+)'
+    name: jvm_memory_heap_$1_bytes
+    type: GAUGE
+
+  - pattern: 'java.lang<type=Memory><NonHeapMemoryUsage>(\w+)'
+    name: jvm_memory_nonheap_$1_bytes
+    type: GAUGE
+
+  # JVM Threading
+  - pattern: 'java.lang<type=Threading><>(\w+Count)'
+    name: jvm_threads_$1
+    type: GAUGE
+
+  # JVM GC
+  - pattern: 'java.lang<type=GarbageCollector,name=(.+)><>CollectionCount'
+    name: jvm_gc_collection_count_total
+    type: COUNTER
+    labels:
+      gc: "$1"
+
+  - pattern: 'java.lang<type=GarbageCollector,name=(.+)><>CollectionTime'
+    name: jvm_gc_collection_time_ms_total
+    type: COUNTER
+    labels:
+      gc: "$1"
+
+  # WildFly Datasource Pool (TechMartDS)
+  - pattern: 'jboss.as<subsystem=datasources,data-source=(.+),statistics=pool><>(\w+)'
+    name: wildfly_datasource_pool_$2
+    type: GAUGE
+    labels:
+      datasource: "$1"
+
+  # WildFly HTTP request count (Undertow)
+  - pattern: 'jboss.as<deployment=(.+),subsystem=undertow><>requestCount'
+    name: wildfly_http_request_count_total
+    type: COUNTER
+    labels:
+      deployment: "$1"
+
+  # Catch-all — expose all remaining MBeans with default naming
+  - pattern: ".*"

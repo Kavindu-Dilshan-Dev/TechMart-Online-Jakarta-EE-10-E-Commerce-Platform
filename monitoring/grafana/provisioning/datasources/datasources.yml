@@ -1,0 +1,57 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus-techmart
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: "60s"
+
+  - name: InfluxDB-JMeter
+    type: influxdb
+    uid: influxdb-jmeter
+    access: proxy
+    url: http://influxdb:8086
+    database: jmeter
+    isDefault: false
+    editable: true
+    jsonData:
+      httpMode: GET
+
+  - name: Loki
+    type: loki
+    uid: loki-techmart
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: 'traceId=([a-f0-9]+)'
+          url: '$${__value.raw}'
+          datasourceUid: jaeger-techmart
+
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger-techmart
+    access: proxy
+    url: http://jaeger:16686
+    isDefault: false
+    editable: true
+
+  - name: Alertmanager
+    type: alertmanager
+    uid: alertmanager-techmart
+    access: proxy
+    url: http://alertmanager:9093
+    isDefault: false
+    editable: true
+    jsonData:
+      implementation: prometheus

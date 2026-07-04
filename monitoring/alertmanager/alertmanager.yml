@@ -1,0 +1,52 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'techmart-alerts@gmail.com'
+  smtp_auth_username: 'kavindu4543@gmail.com'
+  # Use a Gmail App Password (not your login password).
+  # Create one at: https://myaccount.google.com/apppasswords
+  smtp_auth_password: 'YOUR_GMAIL_APP_PASSWORD'
+  smtp_require_tls: true
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: email-alerts
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: email-alerts
+      group_wait: 10s
+      repeat_interval: 1h
+    - matchers:
+        - severity="warning"
+      receiver: email-alerts
+      repeat_interval: 4h
+
+receivers:
+  - name: email-alerts
+    email_configs:
+      - to: 'kavindu4543@gmail.com'
+        subject: '[TechMart {{ .Status | toUpper }}] {{ .CommonAnnotations.summary }}'
+        html: |
+          <h2>TechMart Performance Alert</h2>
+          {{ range .Alerts }}
+          <table>
+            <tr><th>Alert</th><td>{{ .Annotations.summary }}</td></tr>
+            <tr><th>Severity</th><td>{{ .Labels.severity }}</td></tr>
+            <tr><th>Description</th><td>{{ .Annotations.description }}</td></tr>
+            <tr><th>Started</th><td>{{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</td></tr>
+            {{ if .EndsAt }}<tr><th>Resolved</th><td>{{ .EndsAt.Format "2006-01-02 15:04:05 UTC" }}</td></tr>{{ end }}
+          </table>
+          <hr/>
+          {{ end }}
+        send_resolved: true
+
+inhibit_rules:
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: ['alertname']

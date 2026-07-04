@@ -1,5 +1,6 @@
 package com.kavindu.techmart.web.rest;
 
+import com.kavindu.techmart.web.metrics.BusinessMetrics;
 import com.kavindu.techmart.web.rest.request.AddCartItemRequest;
 import com.kavindu.techmart.web.rest.request.UpdateCartItemRequest;
 import com.kavindu.techmart.web.security.RequestContext;
@@ -35,6 +36,9 @@ public class CartResource {
     @Inject
     private RequestContext requestContext;
 
+    @Inject
+    private BusinessMetrics businessMetrics;
+
     @GET
     @Operation(summary = "Get the current user's cart")
     public Response getCart() {
@@ -48,6 +52,7 @@ public class CartResource {
     public Response addItem(AddCartItemRequest request) {
         ensureCart();
         cart.addItem(request.getProductId(), request.getQuantity());
+        businessMetrics.recordCartItemAdded();
         return cartView();
     }
 

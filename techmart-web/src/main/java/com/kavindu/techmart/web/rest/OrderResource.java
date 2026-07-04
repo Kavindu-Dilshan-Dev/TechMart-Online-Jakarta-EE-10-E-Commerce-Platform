@@ -4,6 +4,7 @@ import com.kavindu.techmart.common.dto.OrderDTO;
 import com.kavindu.techmart.common.enums.OrderStatus;
 import com.kavindu.techmart.common.exception.ResourceNotFoundException;
 import com.kavindu.techmart.common.interfaces.OrderServiceLocal;
+import com.kavindu.techmart.web.metrics.BusinessMetrics;
 import com.kavindu.techmart.web.session.CartSession;
 import com.kavindu.techmart.web.rest.request.OrderStatusUpdateRequest;
 import com.kavindu.techmart.web.rest.request.PlaceOrderRequest;
@@ -39,12 +40,16 @@ public class OrderResource {
     @Inject
     private RequestContext requestContext;
 
+    @Inject
+    private BusinessMetrics businessMetrics;
+
     @POST
     @Operation(summary = "Place a new order")
     public Response placeOrder(PlaceOrderRequest request) {
         requestContext.requireAuthenticated();
         Long userId = requestContext.getUserId();
         OrderDTO order = orderService.placeOrder(userId, request.getItems(), request.getShippingAddress());
+        businessMetrics.recordOrderPlaced();
         try {
             cart.checkout();
         } catch (RuntimeException ignored) {
@@ -79,6 +84,7 @@ public class OrderResource {
     public Response cancelOrder(@PathParam("id") Long id) {
         requestContext.requireAuthenticated();
         OrderDTO order = orderService.cancelOrder(id, requestContext.getUserId());
+        businessMetrics.recordOrderCancelled();
         return RestSupport.ok(order, "Order cancelled");
     }
 

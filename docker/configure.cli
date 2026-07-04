@@ -53,4 +53,7 @@ data-source add \
   dead-letter-address=jms.queue.DLQ,\
   expiry-address=jms.queue.ExpiryQueue)
 
+# Enable MicroProfile Telemetry (OpenTelemetry) — exporter is set via OTEL_* env vars at runtime
+/subsystem=microprofile-telemetry-smallrye:write-attribute(name=sdk-disabled, value=false)
+
 stop-embedded-server
