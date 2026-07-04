@@ -22,10 +22,10 @@ FROM quay.io/wildfly/wildfly:31.0.0.Final-jdk17
 USER root
 
 # Add MySQL JDBC driver as a WildFly module
-RUN mkdir -p $JBOSS_HOME/modules/com/mysql/main
-COPY --from=builder \
-    /root/.m2/repository/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar \
-    $JBOSS_HOME/modules/com/mysql/main/mysql-connector-j-8.3.0.jar
+RUN mkdir -p $JBOSS_HOME/modules/com/mysql/main && \
+    curl -sSL \
+    "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar" \
+    -o $JBOSS_HOME/modules/com/mysql/main/mysql-connector-j-8.3.0.jar
 COPY docker/mysql-module.xml $JBOSS_HOME/modules/com/mysql/main/module.xml
 
 # Configure datasource + JMS in offline embedded mode (no running server needed)
